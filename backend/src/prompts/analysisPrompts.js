@@ -135,7 +135,7 @@ STRICT RULES FOR REWRITE:
    - NEVER add fictional projects, titles, durations, metrics, or tools
    - NEVER invent experience the original resume does not support
    - If a JD requirement is missing from the resume, add this marker:
-     [GAP: JD requires "{requirement}" but resume has no evidence of this skill]
+     [GAP: JD requires "{{requirement}}" but resume has no evidence of this skill]
    - If experience is thin, improve framing and wording instead of fabricating
 
 5. FORMATTING:
