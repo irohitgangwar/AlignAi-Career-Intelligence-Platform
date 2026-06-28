@@ -83,7 +83,7 @@ const { resumeText, jobDescription, companyName, jobTitle } = req.body;
 // ==========================================
 router.post("/improve-resume",protect, validateBody(improveResumeSchema), async (req, res) => {
   const userId = req.user.userId;
-const { resumeText, jobDescription, companyName, jobTitle } = req.body;
+const { resumeText, jobDescription, improvements, companyName, jobTitle } = req.body;
 
   try {
     logger.info("Starting resume rewrite improvement", { userId, companyName, jobTitle });
