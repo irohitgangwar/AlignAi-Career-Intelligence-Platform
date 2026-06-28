@@ -20,7 +20,7 @@ let pineconeIndex;
 let pineconeIndexName;
 let indexReadyPromise;
 
-// Hinglish: Pinecone config ko runtime par read kar rahe hain, kyunki .env server start hote waqt load hota hai.
+// Pinecone config ko runtime par read kar rahe hain, kyunki .env server start hote waqt load hota hai.
 function getIndexName() {
   return process.env.PINECONE_INDEX || DEFAULT_INDEX;
 }
@@ -77,7 +77,7 @@ function buildNamespace(userId) {
 
 function getPineconeClient() {
   if (!pineconeClient) {
-    // Hinglish: Pinecone client ko lazy initialize kar rahe hain taki startup par bina zarurat hit na ho.
+    // Pinecone client ko lazy initialize kar rahe hain taki startup par bina zarurat hit na ho.
     pineconeClient = new Pinecone({
       apiKey: getPineconeApiKey(),
     });
@@ -89,7 +89,7 @@ function getPineconeClient() {
 async function ensureIndex() {
   if (!indexReadyPromise) {
     indexReadyPromise = (async () => {
-      // Hinglish: pehle Pinecone dashboard wale indexes check karte hain, direct assume nahi karte.
+      // pehle Pinecone dashboard wale indexes check karte hain, direct assume nahi karte.
       const client = getPineconeClient();
       const indexName = getIndexName();
       const expectedDimension = getIndexDimension();
@@ -99,7 +99,7 @@ async function ensureIndex() {
       );
 
       if (!existingIndex) {
-        // Hinglish: index missing ho toh env flag ke according backend khud create kar sakta hai.
+        // index missing ho toh env flag ke according backend khud create kar sakta hai.
         if (!shouldAutoCreateIndex()) {
           throw new Error(
             `Pinecone index "${indexName}" was not found. Create it in Pinecone or enable PINECONE_AUTO_CREATE_INDEX.`
@@ -125,7 +125,7 @@ async function ensureIndex() {
         });
       }
 
-      // Hinglish: existing/created index ki dimension aur ready status validate kar rahe hain.
+      // existing/created index ki dimension aur ready status validate kar rahe hain.
       const description = await client.describeIndex(indexName);
 
       if (description.dimension && description.dimension !== expectedDimension) {
@@ -153,7 +153,7 @@ async function getPineconeIndex() {
   const indexName = getIndexName();
 
   if (!pineconeIndex || pineconeIndexName !== indexName) {
-    // Hinglish: same index object ko reuse karne se har request me naya object banane ki zarurat nahi padti.
+    // same index object ko reuse karne se har request me naya object banane ki zarurat nahi padti.
     pineconeIndex = getPineconeClient().Index(indexName);
     pineconeIndexName = indexName;
   }
@@ -211,7 +211,7 @@ export async function ingestKnowledgeSource({
     }),
   ];
 
-  // Hinglish: ek source ko deterministic chunk ids ke saath index kar rahe hain taki old version replace ho sake.
+  // ek source ko deterministic chunk ids ke saath index kar rahe hain taki old version replace ho sake.
   const splitDocuments = await splitter.splitDocuments(rawDocuments);
   const documentIds = splitDocuments.map((_, index) =>
     buildChunkId(sourceType, sourceId, index)
@@ -273,7 +273,7 @@ export function formatRagContext(chunks = []) {
     return "No retrieved documents were found for this user and query.";
   }
 
-  // Hinglish: retrieved chunks ko human-readable context block me convert karke prompt layer ko de rahe hain.
+  // retrieved chunks ko human-readable context block me convert karke prompt layer ko de rahe hain.
   return chunks
     .map((chunk, index) => {
       const title = chunk.metadata?.title || "Untitled";

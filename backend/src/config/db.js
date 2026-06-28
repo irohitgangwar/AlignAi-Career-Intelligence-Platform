@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
+import { logger } from "../utils/logger.js";
 
 let isConnected = false;
 
 export async function connectDB() {
   if (isConnected) {
-    console.log("♻️ Using existing MongoDB connection");
+    logger.info("♻️ Using existing MongoDB connection");
     return mongoose.connection;
   }
 
@@ -20,13 +21,11 @@ export async function connectDB() {
 
     isConnected = true;
 
-    console.log("✅ MongoDB Atlas Connected");
-    console.log("Database:", mongoose.connection.name);
+    logger.info("✅ MongoDB Atlas Connected", { database: mongoose.connection.name });
 
     return mongoose.connection;
   } catch (error) {
-    console.error("❌ MongoDB Connection Failed");
-    console.error(error);
+    logger.error("❌ MongoDB Connection Failed", error);
     throw error;
   }
 }

@@ -5,33 +5,40 @@ import Intake from "./pages/Intakee.jsx";
 import Landingg from "./pages/Landingg.jsx";
 import Profile from "./pages/Profile.jsx";
 import Layout from "./layouts/Layout.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx"; // Import route guard
 
 function App() {
-  // Hinglish: saare main pages yahin central router me define ho rahe hain.
   const router = createBrowserRouter([
     {
       path: "/",
       element: <Layout />,
       children: [
+        // Public pages
         {
-          path: "/Dashboardd",
-          element: <Dashboard />,
+          index: true,
+          element: <Landingg />,
         },
         {
           path: "/Auth",
           element: <Auth />,
         },
+        // Protected Private Routes
         {
-          path: "/Intakee",
-          element: <Intake />,
-        },
-        {
-          path: "/Profile",
-          element: <Profile />,
-        },
-        {
-          index: true,
-          element: <Landingg />,
+          element: <ProtectedRoute />, // All routes under this outlet require authentication
+          children: [
+            {
+              path: "/Dashboardd",
+              element: <Dashboard />,
+            },
+            {
+              path: "/Intakee",
+              element: <Intake />,
+            },
+            {
+              path: "/Profile",
+              element: <Profile />,
+            },
+          ],
         },
       ],
     },

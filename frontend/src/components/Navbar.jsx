@@ -5,7 +5,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 export default function Navbar() {
   const navigate = useNavigate();
 
-  // Hinglish: localStorage se quick auth state read kar rahe hain.
+  // localStorage se quick auth state read kar rahe hain.
   const userName = localStorage.getItem("userName") || "User";
   const isLoggedIn = localStorage.getItem("userId") !== null;
 

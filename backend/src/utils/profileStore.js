@@ -47,7 +47,7 @@ export async function createOrUpdateProfile(input) {
     return normalizeUser(user);
   }
 
-  // Hinglish: jo fields nayi aayi hain sirf unhi ko update karna hai.
+  // jo fields nayi aayi hain sirf unhi ko update karna hai.
   user.name = input.name || user.name;
   user.email = input.email || user.email;
   user.experience = input.experience ?? user.experience;

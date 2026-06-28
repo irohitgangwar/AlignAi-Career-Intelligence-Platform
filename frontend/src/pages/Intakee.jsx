@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../utils/api.js";
 import {
   Upload,
   Building2,
@@ -11,16 +12,15 @@ import {
   Sparkles,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const REQUEST_TIMEOUT_MS = 120000;
 
-async function fetchJson(url, options = {}) {
-  // Hinglish: request bahut der tak pending na rahe, isliye timeout ke saath API call kar rahe hain.
+async function fetchJson(endpoint, options = {}) {
+  // request bahut der tak pending na rahe, isliye timeout ke saath API call kar rahe hain.
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(url, {
+    const response = await api(endpoint, {
       ...options,
       signal: controller.signal,
     });
@@ -89,8 +89,8 @@ export default function Intake() {
 
       localStorage.setItem("userId", userId);
 
-      // Hinglish: profile ko pehle sync kar rahe hain taaki backend ke paas user ka base record ho.
-      await fetchJson(`${API_BASE}/api/profile/create`, {
+      // profile ko pehle sync kar rahe hain taaki backend ke paas user ka base record ho.
+      await fetchJson("/api/profile/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -108,7 +108,7 @@ export default function Intake() {
       formData.append("email", userEmail);
       formData.append("currentRole", jobTitle || "Candidate");
 
-      const uploadResponse = await fetchJson(`${API_BASE}/api/upload`, {
+      const uploadResponse = await fetchJson("/api/upload", {
         method: "POST",
         body: formData,
       });
@@ -120,7 +120,7 @@ export default function Intake() {
         );
       }
 
-      const analysisResponse = await fetchJson(`${API_BASE}/api/analysis/analyze`, {
+      const analysisResponse = await fetchJson("/api/analysis/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,7 +138,7 @@ export default function Intake() {
         );
       }
 
-      // Hinglish: analysis response se payload bana rahe hain dashboard ke liye.
+      // analysis response se payload bana rahe hain dashboard ke liye.
       // engineeringSignals hata diya hai — ab strongPoints me evidence aur JD relevance hai.
       const analysisPayload = {
         matchScore: analysisResponse.data.matchScore,
@@ -153,7 +153,7 @@ export default function Intake() {
         resumeFileName: uploadResponse.fileName,
       };
 
-      await fetchJson(`${API_BASE}/api/profile/${userId}/analysis`, {
+      await fetchJson(`/api/profile/${userId}/analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

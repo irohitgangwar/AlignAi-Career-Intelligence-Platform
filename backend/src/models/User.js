@@ -27,7 +27,8 @@ const userSchema = new mongoose.Schema(
   {
     userId: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
-    email: { type: String, required: true },
+    email: { type: String, required: true, unique: true, index: true, lowercase: true },
+    passwordHash: { type: String, required: true },
     experience: { type: Number, default: 0 },
     currentRole: { type: String, default: "Fresher" },
     resumeText: { type: String, default: null },
@@ -36,7 +37,7 @@ const userSchema = new mongoose.Schema(
     resumeFileName: { type: String, default: null },
     resumeHistory: { type: [resumeHistorySchema], default: [] },
     analyses: { type: [analysisSchema], default: [] },
-    improvedResumeText: { type: String, default: "" },
+    improvedResumeText: { type: mongoose.Schema.Types.Mixed, default: "" },
   },
   {
     timestamps: true,

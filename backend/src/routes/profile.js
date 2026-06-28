@@ -8,18 +8,23 @@ import {
   saveResumeForUser,
 } from "../utils/profileStore.js";
 import { upsertKnowledgeChunks } from "../utils/rag.js";
+import { validateBody } from "../middlewares/validate.js";
+import {
+  createProfileSchema,
+  updateProfileSchema,
+  saveResumeSchema,
+  saveImprovedResumeSchema,
+} from "../schemas/requestSchemas.js";
+import { logger } from "../utils/logger.js";
+import { protect, verifyOwnership } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.post("/create", async (req, res) => {
-  try {
-    const { userId, name, email, experience, currentRole } = req.body;
+router.post("/create", validateBody(createProfileSchema), async (req, res) => {
+  const { userId, name, email, experience, currentRole } = req.body;
 
-    if (!userId || !name || !email) {
-      return res.status(400).json({
-        error: "userId, name, email required",
-      });
-    }
+  try {
+    logger.info("Creating or updating user profile", { userId, email });
 
     const profile = await createOrUpdateProfile({
       userId,
@@ -35,20 +40,28 @@ router.post("/create", async (req, res) => {
       data: profile,
     });
   } catch (error) {
+    logger.error("Profile creation error", error, { userId });
     res.status(500).json({
+      success: false,
       error: "Error creating profile",
       details: error.message,
     });
   }
 });
 
-router.get("/:userId", async (req, res) => {
+router.get("/:userId", protect, verifyOwnership, async (req, res) => {
+  const { userId } = req.params;
+
   try {
-    const profile = await getProfile(req.params.userId);
+    logger.info("Fetching profile details", { userId });
+
+    const profile = await getProfile(userId);
 
     if (!profile) {
       return res.status(404).json({
+        success: false,
         error: "Profile not found",
+        details: `User profile with id ${userId} does not exist`,
       });
     }
 
@@ -57,25 +70,33 @@ router.get("/:userId", async (req, res) => {
       data: profile,
     });
   } catch (error) {
+    logger.error("Error fetching profile", error, { userId });
     res.status(500).json({
+      success: false,
       error: "Error fetching profile",
       details: error.message,
     });
   }
 });
 
-router.put("/:userId", async (req, res) => {
+router.put("/:userId", protect, verifyOwnership, validateBody(updateProfileSchema), async (req, res) => {
+  const { userId } = req.params;
+
   try {
-    const existing = await getProfile(req.params.userId);
+    logger.info("Updating profile details", { userId });
+
+    const existing = await getProfile(userId);
 
     if (!existing) {
       return res.status(404).json({
+        success: false,
         error: "Profile not found",
+        details: `User profile with id ${userId} does not exist`,
       });
     }
 
     const profile = await createOrUpdateProfile({
-      userId: req.params.userId,
+      userId,
       name: req.body.name || existing.name,
       email: req.body.email || existing.email,
       experience: req.body.experience ?? existing.experience,
@@ -88,16 +109,22 @@ router.put("/:userId", async (req, res) => {
       data: profile,
     });
   } catch (error) {
+    logger.error("Error updating profile", error, { userId });
     res.status(500).json({
+      success: false,
       error: "Error updating profile",
       details: error.message,
     });
   }
 });
 
-router.put("/:userId/resume", async (req, res) => {
+router.put("/:userId/resume", protect, verifyOwnership, validateBody(saveResumeSchema), async (req, res) => {
+  const { userId } = req.params;
+
   try {
-    const result = await saveResumeForUser(req.params.userId, {
+    logger.info("Saving resume details to profile", { userId, fileName: req.body.resumeFileName });
+
+    const result = await saveResumeForUser(userId, {
       resumeText: req.body.resumeText,
       resumeFileUrl: req.body.resumeFileUrl,
       resumePublicId: req.body.resumePublicId,
@@ -107,13 +134,15 @@ router.put("/:userId/resume", async (req, res) => {
 
     if (!result) {
       return res.status(404).json({
+        success: false,
         error: "Profile not found",
+        details: `User profile with id ${userId} does not exist`,
       });
     }
 
     if (req.body.resumeText) {
       await upsertKnowledgeChunks({
-        userId: req.params.userId,
+        userId,
         sourceType: "resume",
         sourceId: "latest",
         title: req.body.resumeFileName || "Latest Resume",
@@ -130,38 +159,38 @@ router.put("/:userId/resume", async (req, res) => {
       data: result.profile,
     });
   } catch (error) {
+    logger.error("Error saving resume", error, { userId });
     res.status(500).json({
+      success: false,
       error: "Error saving resume",
       details: error.message,
     });
   }
 });
 
-router.put("/:userId/improved-resume", async (req, res) => {
-  try {
-    if (!req.body.improvedResumeText) {
-      return res.status(400).json({
-        error: "Improved resume text is required",
-      });
-    }
+router.put("/:userId/improved-resume", protect, verifyOwnership, validateBody(saveImprovedResumeSchema), async (req, res) => {
+  const { userId } = req.params;
+  const { improvedResumeText } = req.body;
 
-    const profile = await saveImprovedResume(
-      req.params.userId,
-      req.body.improvedResumeText
-    );
+  try {
+    logger.info("Saving improved resume to profile", { userId });
+
+    const profile = await saveImprovedResume(userId, improvedResumeText);
 
     if (!profile) {
       return res.status(404).json({
+        success: false,
         error: "Profile not found",
+        details: `User profile with id ${userId} does not exist`,
       });
     }
 
     await upsertKnowledgeChunks({
-      userId: req.params.userId,
+      userId,
       sourceType: "improved_resume",
       sourceId: "latest",
       title: "Latest Improved Resume",
-      text: req.body.improvedResumeText,
+      text: typeof improvedResumeText === "object" ? JSON.stringify(improvedResumeText, null, 2) : improvedResumeText,
       metadata: {},
     });
 
@@ -171,16 +200,22 @@ router.put("/:userId/improved-resume", async (req, res) => {
       data: profile,
     });
   } catch (error) {
+    logger.error("Error saving improved resume", error, { userId });
     res.status(500).json({
+      success: false,
       error: "Error saving improved resume",
       details: error.message,
     });
   }
 });
 
-router.post("/:userId/analysis", async (req, res) => {
+router.post("/:userId/analysis", protect, verifyOwnership, async (req, res) => {
+  const { userId } = req.params;
+
   try {
-    const analysis = await saveAnalysisForUser(req.params.userId, {
+    logger.info("Saving analysis history to profile", { userId, companyName: req.body.companyName, jobTitle: req.body.jobTitle });
+
+    const analysis = await saveAnalysisForUser(userId, {
       companyName: req.body.companyName,
       jobTitle: req.body.jobTitle,
       jobDescription: req.body.jobDescription,
@@ -189,12 +224,14 @@ router.post("/:userId/analysis", async (req, res) => {
 
     if (!analysis) {
       return res.status(404).json({
+        success: false,
         error: "Profile not found",
+        details: `User profile with id ${userId} does not exist`,
       });
     }
 
     await upsertKnowledgeChunks({
-      userId: req.params.userId,
+      userId,
       sourceType: "analysis_summary",
       sourceId: analysis.id,
       title: `${analysis.companyName} - ${analysis.jobTitle}`,
@@ -214,20 +251,28 @@ router.post("/:userId/analysis", async (req, res) => {
       },
     });
   } catch (error) {
+    logger.error("Error saving analysis", error, { userId });
     res.status(500).json({
+      success: false,
       error: "Error saving analysis",
       details: error.message,
     });
   }
 });
 
-router.get("/:userId/analyses", async (req, res) => {
+router.get("/:userId/analyses", protect, verifyOwnership, async (req, res) => {
+  const { userId } = req.params;
+
   try {
-    const analyses = await getAnalysesForUser(req.params.userId);
+    logger.info("Fetching analyses history", { userId });
+
+    const analyses = await getAnalysesForUser(userId);
 
     if (!analyses) {
       return res.status(404).json({
+        success: false,
         error: "Profile not found",
+        details: `User profile with id ${userId} does not exist`,
       });
     }
 
@@ -239,30 +284,40 @@ router.get("/:userId/analyses", async (req, res) => {
       },
     });
   } catch (error) {
+    logger.error("Error fetching analyses", error, { userId });
     res.status(500).json({
+      success: false,
       error: "Error fetching analyses",
       details: error.message,
     });
   }
 });
 
-router.get("/:userId/analysis/:analysisId", async (req, res) => {
+router.get("/:userId/analysis/:analysisId", protect, verifyOwnership, async (req, res) => {
+  const { userId, analysisId } = req.params;
+
   try {
-    const profile = await getProfile(req.params.userId);
+    logger.info("Fetching specific analysis record", { userId, analysisId });
+
+    const profile = await getProfile(userId);
 
     if (!profile) {
       return res.status(404).json({
+        success: false,
         error: "Profile not found",
+        details: `User profile with id ${userId} does not exist`,
       });
     }
 
     const analysis = (profile.analyses || []).find(
-      (item) => item.id === req.params.analysisId
+      (item) => item.id === analysisId
     );
 
     if (!analysis) {
       return res.status(404).json({
+        success: false,
         error: "Analysis not found",
+        details: `Analysis record with id ${analysisId} does not exist`,
       });
     }
 
@@ -271,7 +326,9 @@ router.get("/:userId/analysis/:analysisId", async (req, res) => {
       data: analysis,
     });
   } catch (error) {
+    logger.error("Error fetching analysis", error, { userId, analysisId });
     res.status(500).json({
+      success: false,
       error: "Error fetching analysis",
       details: error.message,
     });

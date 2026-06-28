@@ -1,6 +1,6 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 
-// Hinglish: yeh system directive har prompt me jaata hai — AI ko grounded rakhta hai.
+// yeh system directive har prompt me jaata hai — AI ko grounded rakhta hai.
 // Fake claims, fabricated data, aur generic motivational language ko explicitly mana karta hai.
 const systemDirectives = `
 You are the orchestration brain of AlignAI, an enterprise-grade GenAI resume intelligence platform.
@@ -13,7 +13,7 @@ Rules:
 - When evidence is weak, say so clearly.
 `.trim();
 
-// Hinglish: yeh main analysis prompt hai — resume vs JD comparison karta hai.
+// yeh main analysis prompt hai — resume vs JD comparison karta hai.
 // CRITICAL CHANGE: pehle generic output aata tha jaise "add proficiency level".
 // Ab strict rules hain — har gap ke liye JD evidence, resume evidence, interview risk maangta hai.
 // Suggestions ab "add more details" nahi, exact bullet rewrites honge.
@@ -83,7 +83,7 @@ Return structured output that:
   ],
 ]);
 
-// Hinglish: yeh resume rewrite prompt hai — candidate ka resume JD ke hisaab se polish karta hai.
+// yeh resume rewrite prompt hai — candidate ka resume JD ke hisaab se polish karta hai.
 // CRITICAL CHANGE: ab structured sections me output aayega (Summary, Skills, Experience, Projects, Education).
 // Fake skills add karne pe pabandi hai — agar koi JD skill missing hai toh [GAP] marker lagega.
 export const resumeRewritePrompt = ChatPromptTemplate.fromMessages([
@@ -113,13 +113,27 @@ Retrieved context from the vector knowledge base:
 
 STRICT RULES FOR REWRITE:
 
-1. STRUCTURE — Output the resume with these clear sections:
-   - SUMMARY (2-3 lines, tailored to this JD)
-   - SKILLS (grouped by category: Languages, Frameworks, Tools, etc.)
-   - EXPERIENCE (if any, with improved bullets)
-   - PROJECTS (with improved bullets showing what was built, tech used, and outcome)
-   - EDUCATION
-   - CERTIFICATIONS (if any exist in original)
+1. STRUCTURE — Format your response to exactly match this JSON shape:
+{{
+  "name": string (candidate's name, from original resume),
+  "headline": string (professional headline matching target role, e.g. "Senior React Engineer"),
+  "summary": string[] (2-3 tailored summary sentences, each as a list item),
+  "skills": string[] (grouped categories or list of technical skills, e.g. ["JavaScript", "React", "Node.js"]),
+  "experience": [
+    {{
+      "role": string,
+      "company": string,
+      "bullets": string[] (professional, action-oriented bullet points)
+    }}
+  ],
+  "projects": [
+    {{
+      "title": string,
+      "bullets": string[] (bullets showing what was built, tech used, and outcome)
+    }}
+  ],
+  "education": string[] (candidate education degrees and schools)
+}}
 
 2. BULLET QUALITY:
    - Start with strong action verbs (Developed, Implemented, Designed, Built, Optimized)
@@ -134,19 +148,16 @@ STRICT RULES FOR REWRITE:
 4. HONESTY RULES:
    - NEVER add fictional projects, titles, durations, metrics, or tools
    - NEVER invent experience the original resume does not support
-   - If a JD requirement is missing from the resume, add this marker:
-     [GAP: JD requires "{{requirement}}" but resume has no evidence of this skill]
+   - If a JD requirement is missing from the resume, add this marker into the bullets or summary:
+     "[GAP: JD requires \\"requirement\\" but resume has no evidence of this skill]"
    - If experience is thin, improve framing and wording instead of fabricating
 
-5. FORMATTING:
-   - Use clean, readable formatting with clear section headers
-   - Use bullet points for experience and projects
-   - Keep it concise — one page if possible, two pages max
+Return ONLY the JSON payload. Do not include markdown code block formatting or any extra text.
 `,
   ],
 ]);
 
-// Hinglish: mock interview prompt — technical depth aur resume authenticity dono test karta hai.
+// mock interview prompt — technical depth aur resume authenticity dono test karta hai.
 // Yeh pehle se mostly theek tha, minor improvements for consistency.
 export const mockInterviewPrompt = ChatPromptTemplate.fromMessages([
   ["system", systemDirectives],
@@ -177,7 +188,7 @@ Focus on:
   ],
 ]);
 
-// Hinglish: skill plan prompt — gaps ko practical learning roadmap me convert karta hai.
+// skill plan prompt — gaps ko practical learning roadmap me convert karta hai.
 // Yeh bhi pehle se theek tha.
 export const skillPlanPrompt = ChatPromptTemplate.fromMessages([
   ["system", systemDirectives],

@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../utils/api.js";
 import { Sparkles, ArrowRight, CheckCircle2, TrendingUp, Zap } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 const Landingg = () => {
   const navigate = useNavigate();
   const [serverStatus, setServerStatus] = useState("Checking server...");
 
-  // Hinglish: landing page load hote hi backend health check kar lete hain.
+  // landing page load hote hi backend health check kar lete hain.
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const response = await fetch(`${API_BASE}/handshake`);
+        const response = await api("/handshake");
         const data = await response.json();
         console.log("Server connected:", data);
         setServerStatus("Server online");
@@ -188,7 +187,7 @@ const Landingg = () => {
         <div className="px-6 py-10 border-t border-slate-800 bg-slate-900/30">
           <div className="max-w-6xl mx-auto text-center">
             <p className="text-slate-400 text-sm">© 2024 AlignAI. All rights reserved.</p>
-            <p className="text-slate-500 text-xs mt-2">Built with React, Express, Cloudinary, and Gemini.</p>
+            <p className="text-slate-500 text-xs mt-2">Built with React, Express, Cloudinary, HuggingFace and Pinecone.</p>
           </div>
         </div>
       </div>

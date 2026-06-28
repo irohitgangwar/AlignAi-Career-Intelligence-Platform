@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { Mail, Lock, User, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+import { api } from "../utils/api.js";
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -38,8 +37,8 @@ export default function AuthPage() {
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
-
-  const handleSubmit = async (event) => {
+  
+ const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!validateForm()) {
@@ -47,40 +46,40 @@ export default function AuthPage() {
     }
 
     setIsLoading(true);
+    setErrors({});
 
     try {
-      const userId = localStorage.getItem("userId") || `user_${Date.now()}`;
-      const userName = formData.name || formData.email.split("@")[0];
+      const endpoint = isLogin ? "/api/auth/login" : "/api/auth/signup";
+      const payload = isLogin
+        ? { email: formData.email, password: formData.password }
+        : { name: formData.name, email: formData.email, password: formData.password };
 
-      // Hinglish: abhi full auth system nahi hai, isliye yahan lightweight profile bootstrap kar rahe hain.
-      const profileResponse = await fetch(`${API_BASE}/api/profile/create`, {
+      // Submit credentials to the real authentication backend
+      const response = await api(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          name: userName,
-          email: formData.email,
-          currentRole: "Candidate",
-          experience: 0,
-        }),
+        body: JSON.stringify(payload),
       }).then((res) => res.json());
 
-      if (!profileResponse.success) {
-        throw new Error(profileResponse.error || "Could not create profile");
+      if (!response.success) {
+        throw new Error(response.error || `${isLogin ? "Login" : "Registration"} failed.`);
       }
 
-      localStorage.setItem("userId", userId);
-      localStorage.setItem("userEmail", formData.email);
-      localStorage.setItem("userName", userName);
+      // Store authentic credentials and token inside client memory
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("userId", response.data.userId);
+      localStorage.setItem("userEmail", response.data.email);
+      localStorage.setItem("userName", response.data.name);
 
+      // Redirect user to resume intake
       navigate("/Intakee");
     } catch (error) {
-      console.error("Auth error:", error);
-      setErrors({ submit: error.message || "Error occurred" });
+      console.error("Authentication action failed:", error);
+      setErrors({ submit: error.message || "An authentication error occurred. Please try again." });
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;

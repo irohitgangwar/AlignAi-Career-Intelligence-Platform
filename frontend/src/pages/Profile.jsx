@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../utils/api.js";
 import {
   User,
   Mail,
@@ -12,8 +13,6 @@ import {
   Star,
   FileText,
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -38,7 +37,7 @@ export default function Profile() {
       }
 
       try {
-        const response = await fetch(`${API_BASE}/api/profile/${userId}`).then((res) =>
+        const response = await api(`/api/profile/${userId}`).then((res) =>
           res.json()
         );
 
@@ -67,9 +66,8 @@ export default function Profile() {
   const handleUpdateProfile = async () => {
     try {
       const userId = localStorage.getItem("userId");
-      const response = await fetch(`${API_BASE}/api/profile/${userId}`, {
+      const response = await api(`/api/profile/${userId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),
       }).then((res) => res.json());
 

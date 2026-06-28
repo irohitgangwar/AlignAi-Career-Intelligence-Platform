@@ -17,7 +17,7 @@ function isCloudinaryConfigured() {
   );
 }
 
-// Hinglish: buffer ko direct Cloudinary stream me bhej rahe hain, disk pe file save nahi ho rahi.
+// buffer ko direct Cloudinary stream me bhej rahe hain, disk pe file save nahi ho rahi.
 const uploadBufferToCloudinary = (fileBuffer, fileName = "resume.pdf") => {
   return new Promise((resolve, reject) => {
     if (!isCloudinaryConfigured()) {
@@ -36,7 +36,7 @@ const uploadBufferToCloudinary = (fileBuffer, fileName = "resume.pdf") => {
       }
     );
 
-    // Hinglish: RAM me jo PDF aayi hai usko stream ke through upload kar do.
+    // RAM me jo PDF aayi hai usko stream ke through upload kar do.
     stream.end(fileBuffer);
   });
 };
