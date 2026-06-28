@@ -127,6 +127,15 @@ router.post("/login", async (req, res) => {
     }
 
     // 2. Validate password hashes
+    if (!user.passwordHash) {
+      logger.warn("Attempted login to legacy profile with null password", { userId: user.userId });
+      return res.status(401).json({
+        success: false,
+        error: "Authentication failed",
+        details: "This is a legacy profile without a configured password. Please contact support or register a new account.",
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({

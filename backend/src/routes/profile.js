@@ -10,7 +10,6 @@ import {
 import { upsertKnowledgeChunks } from "../utils/rag.js";
 import { validateBody } from "../middlewares/validate.js";
 import {
-  createProfileSchema,
   updateProfileSchema,
   saveResumeSchema,
   saveImprovedResumeSchema,
@@ -19,35 +18,6 @@ import { logger } from "../utils/logger.js";
 import { protect, verifyOwnership } from "../middlewares/auth.js";
 
 const router = express.Router();
-
-router.post("/create", validateBody(createProfileSchema), async (req, res) => {
-  const { userId, name, email, experience, currentRole } = req.body;
-
-  try {
-    logger.info("Creating or updating user profile", { userId, email });
-
-    const profile = await createOrUpdateProfile({
-      userId,
-      name,
-      email,
-      experience,
-      currentRole,
-    });
-
-    res.json({
-      success: true,
-      message: "Profile created successfully",
-      data: profile,
-    });
-  } catch (error) {
-    logger.error("Profile creation error", error, { userId });
-    res.status(500).json({
-      success: false,
-      error: "Error creating profile",
-      details: error.message,
-    });
-  }
-});
 
 router.get("/:userId", protect, verifyOwnership, async (req, res) => {
   const { userId } = req.params;

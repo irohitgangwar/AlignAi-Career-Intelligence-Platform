@@ -97,7 +97,7 @@ export default function AuthPage() {
             {isLogin ? "Welcome back" : "Create account"}
           </h2>
           <p className="mt-2 text-slate-400">
-            Resume analysis aur profile history yahan se start hoti hai.
+            Get started with resume analysis and tracking your history.
           </p>
         </div>
 

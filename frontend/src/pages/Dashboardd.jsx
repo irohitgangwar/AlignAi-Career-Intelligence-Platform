@@ -32,54 +32,6 @@ import {
   BookOpen,
 } from "lucide-react";
 
-const formatResumeToString = (resume) => {
-  if (!resume) return "";
-  if (typeof resume === "string") return resume;
-  
-  let text = "";
-  if (resume.name) text += `${resume.name.toUpperCase()}\n`;
-  if (resume.headline) text += `${resume.headline}\n\n`;
-  
-  if (Array.isArray(resume.summary) && resume.summary.length) {
-    text += "SUMMARY\n";
-    resume.summary.forEach(s => text += `- ${s}\n`);
-    text += "\n";
-  }
-  
-  if (Array.isArray(resume.skills) && resume.skills.length) {
-    text += "SKILLS\n";
-    text += resume.skills.join("  |  ") + "\n\n";
-  }
-  
-  if (Array.isArray(resume.experience) && resume.experience.length) {
-    text += "EXPERIENCE\n";
-    resume.experience.forEach(exp => {
-      text += `${exp.role} - ${exp.company}\n`;
-      if (Array.isArray(exp.bullets) && exp.bullets.length) {
-        exp.bullets.forEach(b => text += `  - ${b}\n`);
-      }
-      text += "\n";
-    });
-  }
-  
-  if (Array.isArray(resume.projects) && resume.projects.length) {
-    text += "PROJECTS\n";
-    resume.projects.forEach(p => {
-      text += `${p.title}\n`;
-      if (Array.isArray(p.bullets) && p.bullets.length) {
-        p.bullets.forEach(b => text += `  - ${b}\n`);
-      }
-      text += "\n";
-    });
-  }
-  
-  if (Array.isArray(resume.education) && resume.education.length) {
-    text += "EDUCATION\n";
-    resume.education.forEach(edu => text += `- ${edu}\n`);
-  }
-  
-  return text.trim();
-};
 
 export default function Dashboard() {
   // useNavigate hook — redirect karne ke liye use hota hai (jaise /Intakee pe bhejne ke liye)
@@ -157,7 +109,7 @@ export default function Dashboard() {
       const rawImproved = response.data.improvedResumeText;
       setImprovedResumeObj(rawImproved);
 
-      const formatted = formatResumeToString(rawImproved);
+      const formatted = response.data.improvedResumeString || "";
       setImprovedResume(formatted);
 
       // agar userId hai toh improved resume ko profile me bhi save kar do
@@ -703,8 +655,8 @@ export default function Dashboard() {
             {!improvedResume ? (
               <div className="text-center py-12">
                 <p className="text-slate-300 mb-6">
-                  AI tumhare current resume ko JD ke hisaab se better version me rewrite karega.
-                  Fake skills add nahi karega — sirf wording, structure aur keywords improve hoge.
+                  AI will rewrite your current resume into an improved version aligned with the job description. 
+                  It will not add fake skills — it will only optimize your wording, structure, and keywords.
                 </p>
                 <button
                   onClick={handleGenerateImprovedResume}

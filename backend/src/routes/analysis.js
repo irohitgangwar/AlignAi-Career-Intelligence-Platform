@@ -26,6 +26,7 @@ import {
 } from "../schemas/requestSchemas.js";
 import { logger } from "../utils/logger.js";
 import { protect } from "../middlewares/auth.js";
+import { formatResumeToString } from "../utils/resumeFormatter.js";
 
 const router = express.Router();
 
@@ -102,6 +103,7 @@ const { resumeText, jobDescription, improvements, companyName, jobTitle } = req.
       message: "Improved resume generated successfully",
       data: {
         improvedResumeText: improvedResume,
+        improvedResumeString: formatResumeToString(improvedResume),
       },
     });
   } catch (error) {

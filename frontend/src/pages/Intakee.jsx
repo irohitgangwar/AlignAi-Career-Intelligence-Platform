@@ -89,18 +89,6 @@ export default function Intake() {
 
       localStorage.setItem("userId", userId);
 
-      // profile ko pehle sync kar rahe hain taaki backend ke paas user ka base record ho.
-      await fetchJson("/api/profile/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          name: userName,
-          email: userEmail,
-          currentRole: jobTitle || "Candidate",
-        }),
-      });
-
       const formData = new FormData();
       formData.append("resume", file);
       formData.append("userId", userId);
@@ -188,7 +176,7 @@ export default function Intake() {
           AI analysis is running...
         </h2>
         <p className="text-slate-400 max-w-sm leading-relaxed">
-          Resume aur job description ko compare kiya ja raha hai.
+          Analyzing and comparing your resume against the job description.
         </p>
       </div>
     );

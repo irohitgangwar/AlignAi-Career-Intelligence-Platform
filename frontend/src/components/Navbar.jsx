@@ -7,13 +7,10 @@ export default function Navbar() {
 
   // localStorage se quick auth state read kar rahe hain.
   const userName = localStorage.getItem("userName") || "User";
-  const isLoggedIn = localStorage.getItem("userId") !== null;
+  const isLoggedIn = localStorage.getItem("token") !== null;
 
   const handleLogout = () => {
-    localStorage.removeItem("userId");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("analysisData");
+    localStorage.clear();
     navigate("/Auth");
   };
 

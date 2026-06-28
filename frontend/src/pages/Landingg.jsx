@@ -100,7 +100,10 @@ const Landingg = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 items-center">
               <button
-                onClick={() => navigate("/Auth")}
+                onClick={() => {
+                  const token = localStorage.getItem("token");
+                  navigate(token ? "/Intakee" : "/Auth");
+                }}
                 className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-lg font-black rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-2xl shadow-indigo-900/50 flex items-center gap-3"
               >
                 <Sparkles size={24} />
