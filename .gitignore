@@ -3,6 +3,8 @@ node_modules/
 
 # Ignore all markdown files
 *.md
+interview_prep/
+
 
 # Build outputs
 dist/
