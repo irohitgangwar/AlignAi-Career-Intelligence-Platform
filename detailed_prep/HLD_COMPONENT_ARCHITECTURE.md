@@ -81,7 +81,7 @@ graph TD
 
 ---
 
-## D. Whiteboard Drawing & Interview Walkthrough Script
+### D. Whiteboard Drawing & Interview Walkthrough Script
 
 This section provides a detailed script of what to say and do as you draw the AlignAI component architecture diagram on a whiteboard during a system design or technical interview. It explains each component, interaction, and data transformation step in a conversational, human-friendly manner.
 
@@ -107,26 +107,29 @@ This section provides a detailed script of what to say and do as you draw the Al
 1. In the first column (`1. Client Layer`), draw a large box and label it `React SPA Frontend (Vite)`.
 2. Below the main React SPA box, draw a small bubble and label it `LocalStorage (JWT)`.
 3. Draw a double-sided arrow connecting the `React SPA` box and the `LocalStorage` bubble, labeling the connection: `Read/Write Session Token`.
+4. Draw an auxiliary box in column 1 labeled `api.js Fetch Wrapper` inside the React box.
 
 ```text
   [ Client Layer ]
- ┌─────────────────┐
- │    React SPA    │
- │    Frontend     │
- └────────┬────────┘
-          │ (Read/Write Tokens)
- ┌────────▼────────┐
- │  LocalStorage   │
- │   (JWT Cache)   │
- └─────────────────┘
+ ┌─────────────────────────────────┐
+ │    React SPA Frontend (Vite)    │
+ │  ┌───────────────────────────┐  │
+ │  │    api.js Fetch Wrapper   │  │
+ │  └───────────────────────────┘  │
+ └────────────────┬────────────────┘
+                  │ (Read/Write Tokens)
+ ┌────────────────▼────────────────┐
+ │          LocalStorage           │
+ │           (JWT Cache)           │
+ └─────────────────────────────────┘
 ```
 
 **What to Say:**
-> "Let’s start with the client layer. Our frontend is a Single Page Application built using React and compiled with Vite. I chose Vite because it gives a fast developer experience and compiles down to lightweight static assets. 
+> "Let’s start with the client layer. Our frontend is a Single Page Application built using React and compiled with Vite. I chose Vite because it gives a fast developer experience, utilizes ES modules during development, and compiles down to highly optimized, lightweight static assets. 
 > 
-> Since our system is stateless, the frontend needs to manage the user’s session token. We do this by storing a signed JSON Web Token in the browser’s LocalStorage. Whenever the React client boots up, it reads this token. For any subsequent REST API requests, the client injects this token directly into the Authorization Bearer header. 
+> Since our system is designed to be stateless, the frontend needs a reliable way to manage the user’s session state. We do this by storing a cryptographically signed JSON Web Token in the browser’s LocalStorage. Whenever the React client boots up, it reads this token using our custom api.js fetch wrapper. 
 > 
-> When the user logs out, we clear this LocalStorage item, terminating the session client-side. The key design goal here is keeping the frontend decoupled from backend session storage, allowing us to scale the API layer independently."
+> For any subsequent REST API requests, the fetch wrapper automatically intercepts the call and injects this token directly into the Authorization Bearer header. This keeps our routing clean and ensures that the client never has to manually manage headers on individual page requests. When the user logs out, we clear this LocalStorage item, terminating the session client-side immediately."
 
 ---
 
@@ -136,15 +139,16 @@ This section provides a detailed script of what to say and do as you draw the Al
 2. Draw a directional arrow from the `React SPA Frontend` in column 1 to the `Express.js Router` in column 2, labeling it: `HTTPS / JSON Payload`.
 3. Inside the `Express.js Router` box, draw a nested diamond shape and label it `Auth Guard Middleware`.
 4. Draw an arrow extending from the diamond to a small box below labeled `auth.js: protect() & verifyOwnership()`.
+5. Draw a secondary diamond labeled `validateBody(requestSchema)`.
 
 ```text
   [ Client Layer ]             [ Security Gateway ]
- ┌─────────────────┐  HTTPS   ┌─────────────────────┐
- │    React SPA    ├─────────>│  Express.js Router  │
- │    Frontend     │  Bearer  │ ┌─────────────────┐ │
- └─────────────────┘  Token   │ │   Auth Guard    │ │
-                              │ └────────┬────────┘ │
-                              └──────────┼──────────┘
+ ┌─────────────────┐  HTTPS   ┌──────────────────────────────────────────┐
+ │    React SPA    ├─────────>│            Express.js Router             │
+ │    Frontend     │  Bearer  │ ┌─────────────────┐  ┌─────────────────┐ │
+ └─────────────────┘  Token   │ │   Auth Guard    │─>│  validateBody   │ │
+                              │ └────────┬────────┘  └─────────────────┘ │
+                              └──────────┼───────────────────────────────┘
                                          │ Decode Token
                               ┌──────────▼──────────┐
                               │    auth.js Guard    │
@@ -158,7 +162,9 @@ This section provides a detailed script of what to say and do as you draw the Al
 > 
 > First, a helper middleware called `protect()` extracts the JWT from the header, validates its cryptographic signature using our server secret, and decodes the payload to bind the user’s ID to the request object. 
 > 
-> Second, to prevent Insecure Direct Object Reference or IDOR attacks—where User A tries to view User B’s history by guessing their database ID in the URL—we run a custom check called `verifyOwnership()`. This middleware compares the decoded user ID from the signed token with the user parameters in the request path. If they don't match, we block the request immediately at the gate and return a 403 Forbidden status code. This keeps our security boundaries rigid."
+> Second, to prevent Insecure Direct Object Reference or IDOR attacks—where User A tries to view User B’s history by guessing their database ID in the URL—we run a custom check called `verifyOwnership()`. This middleware compares the decoded user ID from the signed token with the user parameters in the request path. If they don't match, we block the request immediately at the gate and return a 403 Forbidden status code. 
+> 
+> Third, we run payload validation using a middleware named `validateBody` backed by request Zod schemas. This blocks malformed requests before they hit our processing layer, protecting our CPU resources."
 
 ---
 
@@ -381,13 +387,131 @@ This section provides a detailed script of what to say and do as you draw the Al
 
 ---
 
-### Phase 10: Handling Stress Questions
+### Phase 10: Infrastructure, Docker, and Nginx Routing
+**What to Do:**
+1. At the bottom of the whiteboard, draw a container box enclosing columns 1, 2, 3, and 4 (except the external APIs).
+2. Label this container box: `Docker Compose Environment`.
+3. Draw a box at the entry point of this container labeled `Nginx Reverse Proxy`.
+4. Draw arrows showing Nginx routing port `8080` requests to `React Frontend` and port `5000` requests to the `Express Gateway`.
+
+```text
+ ┌─────────────────────────────────────────────────────────────────────────┐
+ │ Docker Compose Environment                                              │
+ │                  ┌──────────────────────┐                               │
+ │                  │ Nginx Reverse Proxy  │                               │
+ │                  └──────────┬───────────┘                               │
+ │       Port 8080             │               Port 5000                   │
+ │     ┌───────────────────────┴───────────────────────┐                    │
+ │     ▼                                               ▼                   │
+ │ ┌───────────┐                                   ┌───────────┐           │
+ │ │ React SPA │                                   │  Express  │           │
+ │ └───────────┘                                   │  Gateway  │           │
+ │                                                 └───────────┘           │
+ └─────────────────────────────────────────────────────────────────────────┘
+```
+
 **What to Say:**
-> "This architecture is designed to handle common failure cases gracefully:
+> "To talk briefly about how this system is deployed, we run the client, gateway, and operational database services containerized inside a Docker Compose environment. 
 > 
-> *   **If Hugging Face is down:** We catch the network timeout exception and fall back to alternative model endpoints or return a clear status message.
-> *   **If Pinecone is down:** The RAG retrieval will fail, but the orchestrator catches the failure and falls back to running the analysis using only the raw resume and JD text passed in the request body.
-> *   **To handle traffic spikes:** We can decouple this synchronous model by introducing a message queue like BullMQ with Redis, returning a job ID to the client immediately and letting worker nodes process the heavy embedding and LLM tasks asynchronously.
+> At the network boundary of this environment, we place an Nginx Reverse Proxy. Nginx acts as our primary web server. When requests hit our public IP, Nginx inspects the port and route:
 > 
-> This decoupled architecture keeps the system stateless, secure, and ready to scale."
+> Port 8080 traffic represents our frontend, so Nginx serves our compiled static React bundle directly. Port 5000 traffic represents our backend API endpoints, so Nginx acts as a reverse proxy, forwarding requests to our Express container. 
+> 
+> This setup simplifies local deployment, ensures that our Dev and Prod environments are identical, and allows us to easily add SSL termination or load balancing at the Nginx layer if traffic scales."
+
+---
+
+### Phase 11: Scalability, Caching, and Message Queues
+**What to Do:**
+1. Draw a cylinder to the side of column 3 and label it `Redis Cache`.
+2. Connect `genai.js Orchestrator` to `Redis Cache` with a double-sided arrow.
+3. Draw a box between column 3 and column 4 labeled `BullMQ Queue (Redis backed)`.
+
+```text
+ ┌─────────────────────────┐                 ┌─────────────┐
+ │  genai.js Orchestrator  │────────────────>│ Redis Cache │ (Cache Hits)
+ └───────────┬─────────────┘                 └─────────────┘
+             │
+             ▼ (Push Job)
+ ┌─────────────────────────┐
+ │  BullMQ Queue Handler   │──> [Worker Nodes]
+ └─────────────────────────┘
+```
+
+**What to Say:**
+> "If we were scaling this application to handle 10,000 concurrent analyses, the synchronous pipeline would bottleneck on Hugging Face’s generation speed. To mitigate this, we would introduce two components:
+> 
+> First, a Redis Caching layer. We would generate an MD5 hash of the combined resume and job description. Before running any vector search or calling the LLM, we check Redis. If a matching hash exists, we return the cached JSON analysis payload instantly, reducing response times from 3 seconds to under 10 milliseconds.
+> 
+> Second, a message queue like BullMQ backed by Redis. Instead of running the analysis synchronously, the Express gateway immediately returns a job ID to the client with a 202 Accepted status. 
+> 
+> Independent worker processes scale up dynamically to consume jobs from the queue, execute the RAG retrieval, query the LLM, validate the output, write it to MongoDB, and trigger a WebSocket notification or SSE event to alert the client when the report is ready. This prevents Node’s event loop from blocking and keeps our gateway highly responsive."
+
+---
+
+### Phase 12: Advanced Search (Hybrid Search & Reranking)
+**What to Do:**
+1. Draw a box next to Pinecone labeled `BM25 Full-Text Index`.
+2. Draw a box between `vectorStore.js` and Pinecone labeled `Cohere Reranker Model`.
+
+```text
+ ┌─────────────────────────┐
+ │  vectorStore.js Helper  │
+ └───────────┬─────────────┘
+             ├──────────────────────────┐
+             ▼                          ▼
+      ┌──────────────┐           ┌──────────────┐
+      │ Pinecone DB  │           │  BM25 Index  │
+      │ (Semantic)   │           │  (Keyword)   │
+      └──────┬───────┘           └──────┬───────┘
+             │                          │
+             └───────────┬──────────────┘
+                         ▼ (Top 20 candidate chunks)
+                  ┌──────────────┐
+                  │ Cohere Rerank│ (Re-evaluate relevance)
+                  └──────┬───────┘
+                         ▼ (Top 6 final RAG context)
+                    [GenAI Prompt]
+```
+
+**What to Say:**
+> "To push retrieval precision from our baseline of 95% to 99%, we would upgrade our retrieval architecture from standard vector similarity to a Hybrid Search pipeline with Reranking:
+> 
+> Instead of querying Pinecone alone, we send the search query to both our Pinecone vector index (for semantic meaning) and a BM25 index (for exact technical keyword matching). 
+> 
+> We merge the retrieval lists and take the top 20 candidate chunks. We pass these candidate chunks to a cross-encoder model—like Cohere Rerank. The reranker re-evaluates the exact relevance of each chunk against the job description, filtering out noise and ordering them.
+> 
+> We select the top 6 reranked chunks to inject into the LLM prompt. This ensures that the model is grounded on the most precise evidence possible, eliminating irrelevant context and drastically reducing hallucination risks."
+
+---
+
+### Phase 13: Handling Stress Questions
+**What to Say:**
+> "Finally, let's talk about how the system handles critical infrastructure failures:
+> 
+> *   **What if Pinecone fails?** We catch the retrieval exception and fallback gracefully to a one-shot analysis, sending the entire raw resume and job description directly to Qwen.
+> *   **What if Hugging Face rate-limits us?** We configure a circuit breaker pattern in our API client. If we receive a 429 Too Many Requests, we immediately route requests to an alternative LLM endpoint or a local backup model.
+> *   **What if MongoDB database writes succeed but Pinecone indexing fails?** To prevent inconsistent states, we execute the operation within a database transaction. If the Pinecone indexing fails, we rollback the Mongoose write and return a clean error to the client, prompting them to upload again.
+> 
+> This decoupled, stateless service design ensures our platform remains stable, secure, and ready to scale under load."
+
+---
+
+### Phase 14: Follow-up Whiteboard Q&A and Explanations
+**What to Do:**
+Write three bullet points on the whiteboard:
+*   *ACID vs. Semantic Partitioning*
+*   *Memory Overhead during Concurrency*
+*   *Cold Start Mitigations*
+
+**What to Say:**
+> "If the interviewer pushes deeper on system operational stability, here is how I explain our core design tradeoffs:
+> 
+> First, on ACID vs. Semantic Partitioning. We deliberately keep transactional state in MongoDB Atlas and semantic search vectors in Pinecone. Some developers try to store vectors directly in PostgreSQL using pgvector to simplify their database stack. However, doing so mixes two very different workloads. Operational databases require fast, ACID-compliant writes for logs, auth profiles, and logins. Vector search, on the other hand, is highly CPU-intensive due to floating-point distance calculations. By separating our operational data plane from our vector retrieval plane, we ensure that a traffic spike in resume analyses can never degrade core login, profile viewing, or authentication speeds.
+> 
+> Second, regarding Memory Overhead during Concurrency. Since our PDF parser acts on raw buffers in Node memory without writing temporary files to disk, we face potential RAM bottlenecks. Under high concurrent traffic, multiple large PDF uploads could lead to Node's garbage collector falling behind, potentially causing out-of-memory crashes. In a production environment, I would decouple the PDF parsing task into an independent, serverless microservice. The Express server would forward incoming file buffers to an AWS Lambda function or a Docker container running PyPDF2. This offloads the CPU and memory pressure from our main event loop, allowing the API gateway to stay responsive.
+> 
+> Third, regarding Cold Start Mitigations on Hugging Face. Hugging Face serverless models can occasionally sleep when inactive, introducing a cold-start latency spike of 10 to 15 seconds on the first request. To prevent this from ruining the user experience, we implement two solutions: we configure our client-side dashboard with useful skeletons and progress bars so the user knows analysis is running, and we configure a ping script that heartbeats our Hugging Face models every 10 minutes. This keeps the containers hot in the Hugging Face router pool, ensuring standard response times remain under 3 seconds."
+
+
 
