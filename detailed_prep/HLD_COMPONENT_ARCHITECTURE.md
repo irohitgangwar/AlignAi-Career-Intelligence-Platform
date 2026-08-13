@@ -1,12 +1,12 @@
-# AlignAI Component-Level High-Level Design (HLD) Architecture
+# AlignAI High-Level Design (HLD) Component Architecture & Interview Walkthrough
 
-This document outlines the structural component architecture and boundaries of the **AlignAI** platform, organized into logical application layers.
+This document outlines the structural component architecture, logical boundaries, and a step-by-step whiteboard presentation script for the **AlignAI** platform. It is written in a conversational, engineer-to-engineer style specifically tailored for technical interviews.
 
 ---
 
 ## A. HLD Architecture Diagram
 
-The diagram below represents the system topology, showcasing how the client-side user interface, backend routing controllers, local database engines, and third-party AI services connect.
+The diagram below represents the system topology, showcasing how the client-side user interface, backend routing controllers, in-memory processing services, database planes, and external AI services communicate.
 
 ```mermaid
 graph TD
@@ -51,467 +51,224 @@ graph TD
 
 ---
 
-## B. Component Responsibilities
+## B. Component Responsibilities (Plain English)
 
-*   **React SPA Frontend:** Renders the user dashboard, handles multi-step intake wizard forms, and manages JWT tokens within client state.
-*   **LocalStorage:** Caches active JWT access credentials and verified session flags locally in the browser.
-*   **Express.js Server:** Mounts API routes, decodes request bodies, manages HTTP error states, and acts as the central coordination layer.
-*   **Auth Guard Middlewares:** Decodes signed JWT headers to authenticate request origins and performs ownership parameter checks to block Insecure Direct Object Reference (IDOR) tampering.
-*   **Multer In-Memory Stream:** Intercepts multipart/form-data uploads to capture PDF uploads inside RAM buffers, keeping the server stateless.
-*   **genai.js Orchestrator:** Houses prompt formatting templates, extracts JSON blocks, and manages the execution flow for analysis, roadmaps, and interview preparations.
-*   **resumePdfGenerator.js Canvas:** Renders JSON data into professionally formatted, single-column, ATS-friendly PDF resumes entirely in memory using the PDFKit library.
-*   **vectorStore.js Helper:** Handles recursive character text splitting, initializes the PineconeStore connection, and partitions queries by namespace.
-*   **MongoDB Atlas Database:** Persists operational database state, including user records, encrypted password hashes, and transactional history arrays.
-*   **Cloudinary Media Store:** Serves as a media CDN to host and retrieve uploaded PDF resume documents.
-*   **Pinecone Vector DB:** Provides a vector database index that isolates tenant document chunks inside user-specific namespaces.
-*   **Hugging Face Embedding Model:** Generates 768-dimensional numerical vectors from raw text chunks using the `sentence-transformers/all-mpnet-base-v2` model.
-*   **Hugging Face Router Service:** Routes chat completion requests in OpenAI-compatible formats to the `Qwen/Qwen2.5-7B-Instruct` model.
+Here is what each block on the board actually does:
 
-## C. 60-Second Interview Explanation
-
-> "AlignAI is a full-stack resume optimization platform designed with a decoupled architecture organized into five logical layers.
-> 
-> At the **Client Layer**, we have a React Single Page Application compiled with Vite that communicates over HTTPS with our **Application Gateway Layer**, powered by Express.js. This gateway uses custom middlewares to handle authentication and IDOR security checks by validating signed JWT bearer tokens.
-> 
-> Business operations are handled in our **Business Service Layer**, which processes PDF extractions, coordinates prompt injection, and compiles PDF resumes programmatically in-memory using PDFKit.
-> 
-> Data persistence is split into two systems at the **Data Layer**: MongoDB Atlas stores user profiles and historical logs, while Cloudinary hosts raw PDF files.
-> 
-> Finally, our **External AI Layer** handles all semantic processing. We use LangChain to orchestrate similarity searches in Pinecone, partition data by user namespaces to ensure multi-tenant security, and call Hugging Face endpoints to handle embedding generation and Qwen 2.5 completions."
+1.  **React SPA Frontend**: Compiled with Vite for fast load times. Collects user input (resumes, job descriptions), renders dashboards, and communicates over standard HTTP client calls.
+2.  **Browser LocalStorage**: Caches the signed JSON Web Token (JWT) on the client browser to maintain session persistence across page refreshes without stateful session tracking on the server.
+3.  **Express.js `server.js` Router**: Our REST API gateway. It boots up the HTTP listener, hosts API endpoints, directs incoming requests to specific handlers, and coordinates responses.
+4.  **Auth & IDOR Guard**: A critical security checkpoint. Any incoming request that requires credentials must go through this guard first.
+5.  **`auth.js` Middlewares**: Decodes and verifies the JWT signature. It also performs IDOR (Insecure Direct Object Reference) checks, ensuring that a user ID extracted from a token matches the user ID parameter in the API path.
+6.  **Multer In-Memory Stream**: Intercepts file uploads. Instead of writing files to local server disk storage, it holds the PDF in a RAM buffer to keep our backend instances stateless and light.
+7.  **`genai.js` Orchestrator**: The central controller for AI tasks. It processes system prompts, strips markdown syntax from completions, extracts JSON blocks, and handles LLM interface configurations.
+8.  **`resumePdfGenerator.js` Canvas**: Uses PDFKit to draw single-column resumes programmatically in-memory, computing line coordinates and page boundaries on the fly.
+9.  **`vectorStore.js` Helper**: Coordinates text chunking, retrieves embeddings from the external API, and handles upserts/searches inside Pinecone.
+10. **MongoDB Atlas Database**: The transactional system of record. Stores user profiles, credentials (hashed via bcrypt), resume text, metadata URLs, and analysis run history.
+11. **Cloudinary Media Store**: A media-hosting CDN. We stream original binary PDFs here and save the returned asset URL in MongoDB.
+12. **Pinecone Vector DB**: A vector database index where text chunks are indexed and retrieved using cosine similarity, partitioned strictly by user-specific namespaces.
+13. **Hugging Face Embedding Model**: Uses `sentence-transformers/all-mpnet-base-v2` via a feature-extraction endpoint to turn text segments into 768-dimensional vector arrays.
+14. **Hugging Face Router Service**: An API gateway wrapper that helps route LLM requests to prevent socket disconnects and provide OpenAI-compatible syntax.
+15. **Qwen 2.5 Instruct LLM**: The open-source instruction-tuned model that processes RAG prompts to generate analysis scores, gap logs, and tailored resume bullet points.
 
 ---
 
-### D. Whiteboard Drawing & Interview Walkthrough Script
+## C. The 60-Second Interview Pitch
 
-This section provides a detailed script of what to say and do as you draw the AlignAI component architecture diagram on a whiteboard during a system design or technical interview. It explains each component, interaction, and data transformation step in a conversational, human-friendly manner.
+*Use this when the interviewer asks: **"Can you give me a high-level overview of this architecture?"***
 
-### Phase 1: Setting up the Whiteboard Layout
+> "AlignAI is structured as a decoupled web application divided into five logical layers to achieve clear separation of concerns. 
+> 
+> At the **Client Layer**, we have a React SPA communicating via HTTPS REST APIs with our **Application Gateway Layer** built on Express.js. This gateway uses custom middlewares to handle authentication and IDOR checks by verifying signed JWT tokens. 
+> 
+> Business operations are handled in our **Business Service Layer**, which parses PDFs, coordinates prompt injections, and generates PDF resumes dynamically in RAM.
+> 
+> Data persistence is split into three systems at the **Data Storage Plane**: MongoDB Atlas stores user profiles and transaction history, Cloudinary hosts original PDF assets, and Pinecone manages our vector embeddings. 
+> 
+> Finally, our **External AI Layer** handles semantic extraction and LLM generations. We chunk resume data, send it to a Hugging Face embedding endpoint, index the vectors in Pinecone under user-isolated namespaces, and request structured completions from the Qwen 2.5 model via a Hugging Face router, validating the outputs using Zod schemas before persisting them."
+
+---
+
+## D. Step-by-Step Whiteboard Presentation Script
+
+*This is a spoken script to guide you as you draw the diagram on the whiteboard. It replaces dry definitions with engaging engineering talk.*
+
+### Layout Setup: Setting up the Columns
 **What to Do:**
-1. Stand at the whiteboard, take a marker, and draw four vertical dashed lines from the top of the board to the bottom, dividing the whiteboard into five columns.
-2. Label these columns from left to right:
-   *   `1. Client Layer`
-   *   `2. Security Gateway`
-   *   `3. Processing Services`
-   *   `4. Database & Storage`
-   *   `5. External AI Layer`
+*   Stand up, grab a marker, and draw four vertical dashed lines to divide the whiteboard into five equal columns.
+*   Write the titles at the top of each column:
+    1. `CLIENT LAYER`
+    2. `APPLICATION GATEWAY`
+    3. `BUSINESS SERVICES`
+    4. `DATA & PERSISTENCE`
+    5. `EXTERNAL AI & LLM`
 
 **What to Say:**
-> "To keep our discussion organized, I'll divide the whiteboard into five logical columns. This represents the flow of requests from the user’s browser, through our security boundaries, into our business logic layers, and finally to our persistence and generative AI backends. 
-> 
-> This organization helps separate our frontend interfaces, backend routing, operational data persistence, and the semantic retrieval layer. By dividing the system this way, we can easily trace the boundaries of data ownership and pinpoint where our synchronous gateways transform into third-party asynchronous services."
+> "To explain the topology of AlignAI, I'll organize our components into five vertical columns. This represents how we pass requests from the client's web browser, through our stateless security layer, down into in-memory processors, and out to our databases and third-party AI models. This structure helps keep our system stateless and easy to scale."
 
 ---
 
-### Phase 2: Drawing the Client Layer
+### Step 1: Drawing the CLIENT LAYER
 **What to Do:**
-1. In the first column (`1. Client Layer`), draw a large box and label it `React SPA Frontend (Vite)`.
-2. Below the main React SPA box, draw a small bubble and label it `LocalStorage (JWT)`.
-3. Draw a double-sided arrow connecting the `React SPA` box and the `LocalStorage` bubble, labeling the connection: `Read/Write Session Token`.
-4. Draw an auxiliary box in column 1 labeled `api.js Fetch Wrapper` inside the React box.
-
-```text
-  [ Client Layer ]
- ┌─────────────────────────────────┐
- │    React SPA Frontend (Vite)    │
- │  ┌───────────────────────────┐  │
- │  │    api.js Fetch Wrapper   │  │
- │  └───────────────────────────┘  │
- └────────────────┬────────────────┘
-                  │ (Read/Write Tokens)
- ┌────────────────▼────────────────┐
- │          LocalStorage           │
- │           (JWT Cache)           │
- └─────────────────────────────────┘
-```
+*   In the first column, draw a box labeled `React SPA Frontend`.
+*   Below it, draw a small storage box labeled `Browser LocalStorage`.
+*   Draw a double-sided arrow between them labeled `Read / Write Auth Tokens`.
 
 **What to Say:**
-> "Let’s start with the client layer. Our frontend is a Single Page Application built using React and compiled with Vite. I chose Vite because it gives a fast developer experience, utilizes ES modules during development, and compiles down to highly optimized, lightweight static assets. 
+> "At the client layer, we have our `React SPA`. I compiled this with Vite to ensure fast load times and keep client routing responsive. 
 > 
-> Since our system is designed to be stateless, the frontend needs a reliable way to manage the user’s session state. We do this by storing a cryptographically signed JSON Web Token in the browser’s LocalStorage. Whenever the React client boots up, it reads this token using our custom api.js fetch wrapper. 
-> 
-> For any subsequent REST API requests, the fetch wrapper automatically intercepts the call and injects this token directly into the Authorization Bearer header. This keeps our routing clean and ensures that the client never has to manually manage headers on individual page requests. When the user logs out, we clear this LocalStorage item, terminating the session client-side immediately."
+> Below it, I'm drawing `Browser LocalStorage`. Since we don't store session states on the server, the React app writes the signed JWT bearer token here after a user logs in. For every subsequent request, React reads this token and injects it into the HTTP headers so the gateway can verify who is making the request."
 
 ---
 
-### Phase 3: Drawing the Application Gateway Layer
+### Step 2: Drawing the APPLICATION GATEWAY LAYER
 **What to Do:**
-1. In the second column (`2. Security Gateway`), draw a box and label it `Express.js Router (server.js)`.
-2. Draw a directional arrow from the `React SPA Frontend` in column 1 to the `Express.js Router` in column 2, labeling it: `HTTPS / JSON Payload`.
-3. Inside the `Express.js Router` box, draw a nested diamond shape and label it `Auth Guard Middleware`.
-4. Draw an arrow extending from the diamond to a small box below labeled `auth.js: protect() & verifyOwnership()`.
-5. Draw a secondary diamond labeled `validateBody(requestSchema)`.
-
-```text
-  [ Client Layer ]             [ Security Gateway ]
- ┌─────────────────┐  HTTPS   ┌──────────────────────────────────────────┐
- │    React SPA    ├─────────>│            Express.js Router             │
- │    Frontend     │  Bearer  │ ┌─────────────────┐  ┌─────────────────┐ │
- └─────────────────┘  Token   │ │   Auth Guard    │─>│  validateBody   │ │
-                              │ └────────┬────────┘  └─────────────────┘ │
-                              └──────────┼───────────────────────────────┘
-                                         │ Decode Token
-                              ┌──────────▼──────────┐
-                              │    auth.js Guard    │
-                              └─────────────────────┘
-```
+*   In the second column, draw a box labeled `Express.js server.js Router`.
+*   Draw an arrow from `React SPA` to this box, labeled `HTTPS / REST API`.
+*   Inside the Express box, draw a diamond shape labeled `Auth & IDOR Guard`.
+*   Below it, draw a box labeled `auth.js Middlewares` and connect them with an arrow labeled `JWT Validation & IDOR Checks`.
 
 **What to Say:**
-> "Now, as the user interacts with the app, their requests cross the network boundary via HTTPS. In the second column, I'm drawing the Application Gateway, which is an Express.js server running in Node.js. The main entry point is `server.js`.
+> "Next is the Application Gateway. The React SPA sends HTTPS REST API calls to our `Express.js Router`. 
 > 
-> When a request hits our backend, before we touch any database or perform any business logic, it passes through a series of security filters. I'm drawing our Auth Guard Middleware diamond here to represent this layer. 
+> Before any request hits our business services, it must pass this validation diamond. The router sends the request parameters and headers to our `auth.js Middlewares`. 
 > 
-> First, a helper middleware called `protect()` extracts the JWT from the header, validates its cryptographic signature using our server secret, and decodes the payload to bind the user’s ID to the request object. 
-> 
-> Second, to prevent Insecure Direct Object Reference or IDOR attacks—where User A tries to view User B’s history by guessing their database ID in the URL—we run a custom check called `verifyOwnership()`. This middleware compares the decoded user ID from the signed token with the user parameters in the request path. If they don't match, we block the request immediately at the gate and return a 403 Forbidden status code. 
-> 
-> Third, we run payload validation using a middleware named `validateBody` backed by request Zod schemas. This blocks malformed requests before they hit our processing layer, protecting our CPU resources."
+> This middleware decodes the JWT signature to verify it wasn't tampered with. It also performs Insecure Direct Object Reference, or IDOR, checks. By verifying that the user ID in the signed token matches the user ID in the request parameters, we prevent malicious users from modifying another candidate's profile."
 
 ---
 
-### Phase 4: Drawing the Business Service Layer
+### Step 3: Drawing the BUSINESS SERVICE LAYER
 **What to Do:**
-1. In the third column (`3. Processing Services`), draw three boxes vertically stacked:
-   *   Top: `Multer In-Memory Storage`
-   *   Middle: `genai.js Orchestrator`
-   *   Bottom: `PDFKit Canvas Engine`
-2. Draw a directional arrow from the `Auth Guard Middleware` (column 2) to each of these three boxes.
-3. Next to the `Multer` box, draw a small circle labeled `pdf-parse Engine` and connect them with an arrow.
-4. Next to the `genai.js Orchestrator` box, draw a small box labeled `vectorStore.js Helper` and connect them with a double-sided arrow.
-
-```text
-  [ Security Gateway ]            [ Processing Services ]
- ┌─────────────────────┐         ┌─────────────────────────┐
- │  Express.js Router  │────────>│  Multer Memory Buffer   │──> [pdf-parse]
- │  (Auth & IDOR Guard)│         └─────────────────────────┘
- └─────────────────────┘         ┌─────────────────────────┐
-            │                    │  genai.js Orchestrator  │<─> [vectorStore.js]
-            └───────────────────>└─────────────────────────┘
-            │                    ┌─────────────────────────┐
-            └───────────────────>│   PDFKit Canvas Engine  │
-                                 └─────────────────────────┘
-```
+*   In the third column, draw three boxes stacked vertically:
+    *   Top: `Multer In-Memory Stream`
+    *   Middle: `genai.js Orchestrator`
+    *   Bottom: `resumePdfGenerator.js Canvas`
+*   Draw three arrows extending from `auth.js Middlewares` to these boxes, labeled:
+    *   To Multer: `Buffer Parse`
+    *   To genai.js: `Analyze / Ingest / Query`
+    *   To resumePdfGenerator.js: `Structured PDF Generation`
+*   Next to `genai.js Orchestrator`, draw `vectorStore.js Helper`. Connect them with a double-sided arrow labeled `RAG Logic / Embedding Map`.
 
 **What to Say:**
-> "Once the request is authenticated and verified, it moves into our third column: the Business Service Layer. This layer is entirely stateless and operates in-memory to keep performance high and support serverless deployment targets. I'm drawing three primary components here:
+> "In the Business Service column, everything runs in RAM to minimize disk latency. I've broken this down into three dedicated services:
 > 
-> First, at the top, is our file ingestion engine. When a user uploads a resume, we don't save files to a temporary disk. Instead, we use `multer` configured with memory storage, which captures the binary PDF stream as a Buffer in RAM. We immediately pass this buffer to the `pdf-parse` library to extract raw text strings. This keeps the node instance lightweight and avoids filesystem write collisions under load.
-> 
-> In the middle is our `genai.js Orchestrator`. This is the core intelligence component of the application. It maps our prompt templates, handles context aggregation, extracts JSON substrings from model responses, and coordinates the flow for our resume analysis, roadmaps, and mock interview engines.
-> 
-> At the bottom is our `PDFKit Canvas Engine`. When a user requests a downloadable version of their rewritten resume, this service takes the optimized JSON data and programmatically draws a single-column, clean layout page-by-page. It calculates line wrapping and cursor coordinates dynamically, converting structured data back into a binary PDF buffer in-memory to stream it back to the user."
+> *   At the top is `Multer`. When a resume is uploaded, Multer intercepts the binary stream and buffers it in memory. This avoids writing files to local disk, making it perfect for serverless deployments.
+> *   In the middle is our `genai.js Orchestrator`. It acts as the coordinator for prompt structures, response parsing, and validation.
+> *   Next to it, I'm drawing our `vectorStore.js Helper`. The orchestrator uses this helper to chunk raw text and coordinate with the vector database.
+> *   At the bottom, we have our `resumePdfGenerator.js Canvas`. This service uses PDFKit to draw and compile the optimized resume layout programmatically in RAM."
 
 ---
 
-### Phase 5: Drawing the Database & Storage Layer
+### Step 4: Drawing the DATABASE & DATA STORAGE PLANE
 **What to Do:**
-1. In the fourth column (`4. Database & Storage`), draw three cylinders to represent different database and storage systems:
-   *   Top: `Cloudinary Media Store`
-   *   Middle: `MongoDB Atlas (Transactional)`
-   *   Bottom: `Pinecone Vector DB`
-2. Draw a dashed arrow from the `Multer In-Memory Storage` box (column 3) to the `Cloudinary Media Store` cylinder.
-3. Draw a solid arrow from the `pdf-parse Engine` circle (column 3) to the `MongoDB Atlas` cylinder, labeling it: `Mongoose Schema Write`.
-4. Draw an arrow from the `vectorStore.js Helper` (column 3) to the `Pinecone Vector DB` cylinder, labeling it: `Upsert/Query Namespace`.
-
-```text
-  [ Processing Services ]             [ Database & Storage ]
- ┌─────────────────────────┐         ┌──────────────────────┐
- │  Multer Memory Buffer   │- - - - >│   Cloudinary Store   │
- └─────────────────────────┘         └──────────────────────┘
- ┌─────────────────────────┐         ┌──────────────────────┐
- │     pdf-parse Engine    │────────>│    MongoDB Atlas     │
- └─────────────────────────┘         └──────────────────────┘
- ┌─────────────────────────┐         ┌──────────────────────┐
- │   vectorStore.js Helper │────────>│  Pinecone Vector DB  │
- └─────────────────────────┘         └──────────────────────┘
-```
+*   In the fourth column, draw three database cylinders vertically:
+    *   Top: `MongoDB Atlas Database`
+    *   Middle: `Cloudinary Media Store`
+    *   Bottom: `Pinecone Vector DB`
+*   Draw arrows from:
+    *   `Multer` (column 3) $\rightarrow$ `MongoDB` (column 4), labeled `Text Extraction`.
+    *   `Multer` (column 3) $\rightarrow$ `Cloudinary` (column 4), labeled `Upload Stream / Cloudinary SDK`.
+    *   `vectorStore.js Helper` (column 3) $\leftrightarrow$ `Pinecone` (column 4), labeled `Similarity Search / Pinecone SDK`.
 
 **What to Say:**
-> "Now let's talk about where this data goes. In column four, we have our database and storage tier. A key design pattern in AlignAI is the separation of our data planes into three separate systems based on access patterns:
+> "For our databases, we split our data plane into three systems based on access patterns:
 > 
-> First, at the top, we have the Cloudinary Media Store. We stream the original PDF buffer here asynchronously. This gives us a hosted URL for the raw file, which we save in the user's document as a profile metadata asset.
-> 
-> In the middle is MongoDB Atlas, which is our primary transactional database. We use Mongoose models to handle user credentials, password hashes, and profile fields. It also stores historical analysis logs. MongoDB is a great fit here because our history schema contains nested arrays of suggestions and strengths that can evolve over time.
-> 
-> At the bottom is the Pinecone Vector Database. Pinecone is a vector-native index designed specifically for semantic search. Rather than storing full user documents, it stores high-dimensional vector representations of our text chunks along with metadata payloads. 
-> 
-> To ensure data privacy, we partition Pinecone using user namespaces. This means when we execute a query or upsert, the database engine physically limits the search to the partition matching that specific user ID, preventing cross-user data leakage at the database level."
+> *   First, `MongoDB Atlas`. Once Multer buffers a resume, we extract its text in RAM and save it to MongoDB. MongoDB stores our user profiles, account metadata, and history logs.
+> *   Second, `Cloudinary`. We stream the raw binary PDF file directly from memory to Cloudinary via their SDK and save the URL in MongoDB.
+> *   Third, `Pinecone Vector DB`. We use Pinecone to store and search vector representations of text. To guarantee data isolation in a shared index, we partition vectors using candidate-specific namespaces. When we search or write, we restrict Pinecone to that user's namespace."
 
 ---
 
-### Phase 6: Drawing the External AI Layer
+### Step 5: Drawing the EXTERNAL AI & LLM SERVICES
 **What to Do:**
-1. In the fifth column (`5. External AI Layer`), draw three boxes:
-   *   Top: `Hugging Face Feature Extraction`
-   *   Middle: `Hugging Face Router API`
-   *   Bottom: `Qwen 2.5 Instruct LLM`
-2. Draw a directional arrow from the `vectorStore.js Helper` (column 3) to the `Hugging Face Feature Extraction` box, labeling it: `Text Chunks -> 768-dim Vectors`.
-3. Draw a directional arrow from the `Hugging Face Feature Extraction` box back to `vectorStore.js Helper`, representing the returned vector arrays.
-4. Draw a double-sided arrow between `genai.js Orchestrator` (column 3) and `Hugging Face Router API` (column 5), labeling it: `HTTPS / chat completions`.
-5. Connect `Hugging Face Router API` to the `Qwen 2.5 Instruct LLM` box with an arrow.
-
-```text
-  [ Processing Services ]              [ External AI Layer ]
- ┌─────────────────────────┐          ┌──────────────────────┐
- │  vectorStore.js Helper  │<────────>│ HF Feature Extractor │ (Embeddings)
- └─────────────────────────┘          └──────────────────────┘
- ┌─────────────────────────┐          ┌──────────────────────┐
- │  genai.js Orchestrator  │<────────>│ HF Router API (Chat) │ (LLM Gateway)
- └─────────────────────────┘          └──────────┬───────────┘
-                                                 │
-                                      ┌──────────▼───────────┐
-                                      │  Qwen 2.5 Instruct   │ (AI Model)
-                                      └──────────────────────┘
-```
+*   In the fifth column, draw three boxes vertically:
+    *   Top: `Hugging Face Embedding Model`
+    *   Middle: `Hugging Face Router Service`
+    *   Bottom: `Qwen 2.5 Instruct LLM`
+*   Draw arrows:
+    *   `vectorStore.js Helper` (column 3) $\rightarrow$ `Hugging Face Embedding Model` (column 5), labeled `Feature Extraction API`.
+    *   `genai.js Orchestrator` (column 3) $\leftrightarrow$ `Hugging Face Router Service` (column 5), labeled `Hugging Face Router API`.
+    *   `Hugging Face Router Service` (column 5) $\leftrightarrow$ `Qwen 2.5 Instruct LLM` (column 5), labeled `Text completions`.
 
 **What to Say:**
-> "Finally, let's look at how our business logic communicates with external machine learning components. In column five, we have the External AI Layer.
+> "Finally, let's look at the External AI services. 
 > 
-> When our `vectorStore.js` helper needs to index text or perform a similarity search, it first sends the raw text chunks to the Hugging Face Feature Extraction API. This endpoint runs the `sentence-transformers/all-mpnet-base-v2` model, which takes the text strings and converts them into 768-dimensional numerical vectors. We return these arrays to Node, which then routes them to Pinecone.
+> When our vector helper needs to index or query text, it sends text chunks to the `Hugging Face Embedding Model` API. This model takes text inputs and returns 768-dimensional vector arrays representing their semantic meaning.
 > 
-> When we need to perform reasoning—such as calculating a match score or generating resume rewrites—our `genai.js` orchestrator formats the system and user prompt messages and sends them to the Hugging Face Router API. 
-> 
-> We shifted to the Hugging Face Router base because it uses an OpenAI-compatible format which is robust and avoids local network timeout bugs. The router forwards these completions requests to the `Qwen2.5-7B-Instruct` model, which generates our response. 
-> 
-> Once Qwen returns the raw completion, the backend extracts the JSON substring, runs it through our Zod schema guardrails to enforce field typing, saves the validated report to MongoDB, and returns it to the client dashboard."
+> To generate suggestions or rewrite resume bullet points, our orchestrator communicates with the `Qwen 2.5 Instruct LLM` using the `Hugging Face Router Service`. This router translates prompts to an OpenAI-compatible format and helps prevent network disconnects."
 
 ---
 
-### Phase 7: Whiteboard Walkthrough of the PDF Ingestion Flow
+### Step 6: Drawing Cross-Layer Feedback Loops
 **What to Do:**
-1. Pick up a red marker (or point to the arrows with your finger) to trace the end-to-end data path as the user uploads a resume.
-2. Trace the path: `User Browser` -> `React SPA` -> `Express.js Router` -> `Multer` -> `pdf-parse` -> `MongoDB` & `Cloudinary`.
-3. Then trace from `pdf-parse` -> `vectorStore.js` -> `Hugging Face Feature Extraction` -> `vectorStore.js` -> `Pinecone User Namespace`.
-
-```text
-  [Client] ──(PDF File)──> [Express Gateway] ──> [Multer Memory Buffer]
-                                                       │
-                           ┌───────────────────────────┴───────────────────────────┐
-                           ▼                                                       ▼
-                [pdf-parse Extraction]                                     [Cloudinary Upload]
-                           │                                                       │
-                           ▼                                                       ▼
-                [Save Text to MongoDB]                                   [Save URL to MongoDB]
-                           │
-                           ▼
-              [Split Text to 1000-char Chunks]
-                           │
-                           ▼
-              [HF Feature Extraction (Embed)]
-                           │
-                           ▼ (768-dim Vectors)
-              [Pinecone Ingestion (user-namespace)]
-```
+*   Draw a long return line from `PDFKit Canvas` (column 3) back to `React SPA Frontend` (column 1), and label it: `In-Memory Binary PDF Stream`.
+*   Draw a double-sided arrow between `MongoDB` (column 4) and `Express.js Router` (column 2), and label it: `Mongoose Queries`.
+*   Draw a dashed line from `genai.js Orchestrator` (column 3) to `MongoDB` (column 4), and label it: `Zod Schema Enforcements`.
 
 **What to Say:**
-> "To show how this architecture works under real application load, let's walk through what happens when a user uploads a new resume PDF:
+> "To wrap up the diagram, I'll add three feedback loops:
 > 
-> First, the client browser packs the PDF file into a multipart form data request and sends it over HTTPS. The request is intercepted by the Express server, and the `protect` middleware decodes the user's JWT from the headers to ensure authentication.
-> 
-> The file stream is loaded into RAM by Multer. The backend immediately starts two async operations: it pipes the buffer to the `pdf-parse` library to extract raw characters, and uploads the file stream directly to Cloudinary. Once complete, it writes the extracted text, filename, and Cloudinary access URL to the user's document in MongoDB, establishing the transactional record.
-> 
-> Next, the server takes the extracted text string and splits it into 1000-character chunks with a 200-character overlap. We send these text segments to Hugging Face Feature Extraction to generate 768-dimensional vector arrays. 
-> 
-> Finally, the server takes these vectors, attaches metadata identifying them as resume chunks, and indexes them in Pinecone inside the `user-{userId}` namespace, completing the indexing pipeline."
+> *   First, a return loop from our `PDFKit Canvas` back to the `React SPA`. When a user requests a download, the canvas compiles the buffer and streams the binary PDF directly to the browser, bypassing local disk writes entirely.
+> *   Second, a database loop between `MongoDB` and `Express` representing transactional lookups and account updates.
+> *   Third, a dashed line from our `genai.js Orchestrator` to `MongoDB`. This is our schema guardrail: before saving any AI-generated report, we validate the parsed JSON output against our Zod schema. If it fails, we reject it to prevent corrupt data from reaching our database."
 
 ---
 
-### Phase 8: Whiteboard Walkthrough of the RAG Analysis Flow
-**What to Do:**
-1. Trace the query path: `User Job Description` -> `Express Gateway` -> `genai.js` -> `vectorStore.js` -> `Pinecone` -> `Hugging Face Router (Qwen)` -> `Zod Schemas` -> `MongoDB` & `React SPA`.
+## E. End-to-End Core Data Flows (Trace on Board)
 
-```text
-  [Job Description] ──> [Express Gateway] ──> [Ingest JD to Pinecone]
-                                                       │
-                                                       ▼
-                                            [Embed JD Query Vector]
-                                                       │
-                                                       ▼
-                                     [Query Pinecone User Namespace]
-                                                       │
-                                                       ▼ (Top 6 matched chunks)
-                                          [Format RAG Context Block]
-                                                       │
-                                                       ▼
-                                       [Prompt + Context -> HF Router]
-                                                       │
-                                                       ▼ (Qwen 2.5 JSON)
-                                         [Extract JSON & Zod Parse]
-                                                       │
-                                                       ▼
-                                      [Save Report to MongoDB History]
-                                                       │
-                                                       ▼
-                                            [JSON Payload to Client]
-```
+### 1. Ingestion Flow (PDF Upload to RAG Index)
+*   **Step A**: The client uploads a PDF resume. The request goes over HTTPS to `/api/upload`.
+*   **Step B**: The `protect` middleware decodes the JWT to verify the user.
+*   **Step C**: Multer captures the file buffer in memory. The system extracts the text using `pdf-parse` and concurrently streams the PDF to Cloudinary.
+*   **Step D**: MongoDB is updated with the candidate's profile records.
+*   **Step E**: The text is split into chunks of 1000 characters with a 200-character overlap.
+*   **Step F**: We send these chunks to the Hugging Face Feature Extraction API to get 768-dimensional embeddings, which are then saved in Pinecone under the user's namespace (`user-namespace-{userId}`).
 
-**What to Say:**
-> "Next, let's trace the core RAG analysis flow when the user submits a target job description:
-> 
-> The frontend sends a JSON body containing the JD, job title, and company name to our `/analyze` endpoint.
-> 
-> The server first split-chunks and indexes this new Job Description into Pinecone. Then, it constructs a search query vector based on the JD and target role, sending a similarity search request to Pinecone inside the user’s namespace.
-> 
-> Pinecone executes a cosine similarity search against all vectors in that namespace and returns the top-6 most relevant chunks—which usually include matching paragraphs from the candidate’s resume, previous analysis summaries, and related job description clauses.
-> 
-> The orchestrator takes these 6 text chunks, compiles them into a structured RAG context block, and inserts them into our prompt template. We send this combined prompt to the Hugging Face Router API, which hits Qwen 2.5.
-> 
-> Qwen generates the raw text completion. The server extracts the JSON block from the text response, validates the fields against our Zod schema to ensure no data is missing or corrupted, writes the finalized analysis report to MongoDB, and sends the JSON payload back to the client dashboard to render the analysis widgets."
+### 2. RAG Match Analysis Flow (Resume vs. JD)
+*   **Step A**: The client sends a target job description to `/api/analysis/analyze`.
+*   **Step B**: The backend embeds the job description text and queries Pinecone.
+*   **Step C**: Pinecone retrieves the **top 6 most relevant text chunks** from the candidate's namespace.
+*   **Step D**: The orchestrator injects these chunks and the target job description into the system prompt.
+*   **Step E**: We send the combined prompt to the Hugging Face Router API, which returns a raw string response from Qwen 2.5.
+*   **Step F**: The orchestrator extracts the JSON substring, runs it through a Zod schema validation check, saves the report to MongoDB, and returns the JSON payload to the React dashboard.
+
+### 3. PDF Resume Generation Flow
+*   **Step A**: The client requests a tailored resume download by sending the improved JSON data to `/api/analysis/download-resume-pdf`.
+*   **Step B**: Our canvas engine initializes a blank letter-sized document in RAM.
+*   **Step C**: The engine iterates through the JSON sections, drawing text and borders. It checks vertical cursor boundaries to handle page breaks automatically.
+*   **Step D**: The backend sets the attachment download headers and streams the binary buffer directly to the user's browser.
 
 ---
 
-### Phase 9: Whiteboard Walkthrough of the PDF Resume Generation Flow
-**What to Do:**
-1. Trace the PDF compile path: `React SPA` -> `Express Gateway` -> `PDFKit Canvas` -> `Response Stream` -> `User Browser`.
+## F. Key Design Decisions & Trade-offs (The "Why")
 
-```text
-  [Request PDF] ──> [Express Gateway] ──> [PDFKit Canvas Canvas Engine]
-                                                       │
-                                                       ▼ (Format layout / margins)
-                                            [In-Memory Binary PDF]
-                                                       │
-                                                       ▼
-                                            [Response Stream Header]
-                                                       │
-                                                       ▼
-                                          [Trigger Download in Browser]
-```
+*Be prepared to discuss these design choices during your interview. Frame them as intentional decisions with clear trade-offs.*
 
-**What to Say:**
-> "Finally, let's look at the PDF download flow:
-> 
-> When the user clicks 'Download PDF', the frontend sends the optimized, structured JSON resume text to `/download-resume-pdf`.
-> 
-> Our PDFKit Canvas engine takes this JSON payload and initializes a blank letter-sized document canvas in RAM. It iterates through the sections—like summary, skills, and projects—and draws the text programmatically using standard Helvetica fonts. It checks the vertical cursor coordinate `doc.y` before writing each bullet point: if the coordinate exceeds our margin bounds, it triggers a page break.
-> 
-> Once the layout is drawn, the engine compiles the canvas into a binary buffer. The backend sets the Content-Disposition headers to trigger an attachment download and streams the binary buffer directly back to the user's browser, bypassing local disk writes entirely to ensure statelessness."
+### 1. Pinecone Namespaces vs. Isolated Indices
+*   **Decision**: We partition a single, shared vector index using user-specific namespaces.
+*   **Why**: Creating a dedicated index for each user is expensive and doesn't scale well. Namespaces isolate data logically within a single index.
+*   **Trade-off**: We cannot perform global vector queries across all users without iterating through namespaces. If strict data compliance is required (e.g., enterprise clients), isolating indexes would be the alternative.
+
+### 2. In-Memory Processing vs. Local Disk Storage
+*   **Decision**: We process PDF files and generate exports entirely in RAM using Multer and PDFKit.
+*   **Why**: Writing file uploads to local disk requires managing persistent storage volumes, which limits scaling in containerized or serverless environments.
+*   **Trade-off**: Concurrent uploads of large files can cause RAM usage to spike. We address this by setting a strict 2MB file size limit in our Multer middleware.
+
+### 3. Structured LLM Responses with Custom JSON Extraction & Zod Guardrails
+*   **Decision**: We instruct the model to return JSON, clean raw string outputs, and validate the schema using Zod.
+*   **Why**: LLMs are non-deterministic and can return conversational text or invalid JSON. Zod ensures that the parsed output contains all required fields before it is stored in our database.
+*   **Trade-off**: Validation checks add minor latency and require maintaining schemas in code.
 
 ---
 
-### Phase 10: Infrastructure, Docker, and Nginx Routing
-**What to Do:**
-1. At the bottom of the whiteboard, draw a container box enclosing columns 1, 2, 3, and 4 (except the external APIs).
-2. Label this container box: `Docker Compose Environment`.
-3. Draw a box at the entry point of this container labeled `Nginx Reverse Proxy`.
-4. Draw arrows showing Nginx routing port `8080` requests to `React Frontend` and port `5000` requests to the `Express Gateway`.
+## G. Common Interview Q&A on Failures & Edge Cases
 
-```text
- ┌─────────────────────────────────────────────────────────────────────────┐
- │ Docker Compose Environment                                              │
- │                  ┌──────────────────────┐                               │
- │                  │ Nginx Reverse Proxy  │                               │
- │                  └──────────┬───────────┘                               │
- │       Port 8080             │               Port 5000                   │
- │     ┌───────────────────────┴───────────────────────┐                    │
- │     ▼                                               ▼                   │
- │ ┌───────────┐                                   ┌───────────┐           │
- │ │ React SPA │                                   │  Express  │           │
- │ └───────────┘                                   │  Gateway  │           │
- │                                                 └───────────┘           │
- └─────────────────────────────────────────────────────────────────────────┘
-```
-
-**What to Say:**
-> "To talk briefly about how this system is deployed, we run the client, gateway, and operational database services containerized inside a Docker Compose environment. 
-> 
-> At the network boundary of this environment, we place an Nginx Reverse Proxy. Nginx acts as our primary web server. When requests hit our public IP, Nginx inspects the port and route:
-> 
-> Port 8080 traffic represents our frontend, so Nginx serves our compiled static React bundle directly. Port 5000 traffic represents our backend API endpoints, so Nginx acts as a reverse proxy, forwarding requests to our Express container. 
-> 
-> This setup simplifies local deployment, ensures that our Dev and Prod environments are identical, and allows us to easily add SSL termination or load balancing at the Nginx layer if traffic scales."
-
----
-
-### Phase 11: Scalability, Caching, and Message Queues
-**What to Do:**
-1. Draw a cylinder to the side of column 3 and label it `Redis Cache`.
-2. Connect `genai.js Orchestrator` to `Redis Cache` with a double-sided arrow.
-3. Draw a box between column 3 and column 4 labeled `BullMQ Queue (Redis backed)`.
-
-```text
- ┌─────────────────────────┐                 ┌─────────────┐
- │  genai.js Orchestrator  │────────────────>│ Redis Cache │ (Cache Hits)
- └───────────┬─────────────┘                 └─────────────┘
-             │
-             ▼ (Push Job)
- ┌─────────────────────────┐
- │  BullMQ Queue Handler   │──> [Worker Nodes]
- └─────────────────────────┘
-```
-
-**What to Say:**
-> "If we were scaling this application to handle 10,000 concurrent analyses, the synchronous pipeline would bottleneck on Hugging Face’s generation speed. To mitigate this, we would introduce two components:
-> 
-> First, a Redis Caching layer. We would generate an MD5 hash of the combined resume and job description. Before running any vector search or calling the LLM, we check Redis. If a matching hash exists, we return the cached JSON analysis payload instantly, reducing response times from 3 seconds to under 10 milliseconds.
-> 
-> Second, a message queue like BullMQ backed by Redis. Instead of running the analysis synchronously, the Express gateway immediately returns a job ID to the client with a 202 Accepted status. 
-> 
-> Independent worker processes scale up dynamically to consume jobs from the queue, execute the RAG retrieval, query the LLM, validate the output, write it to MongoDB, and trigger a WebSocket notification or SSE event to alert the client when the report is ready. This prevents Node’s event loop from blocking and keeps our gateway highly responsive."
-
----
-
-### Phase 12: Advanced Search (Hybrid Search & Reranking)
-**What to Do:**
-1. Draw a box next to Pinecone labeled `BM25 Full-Text Index`.
-2. Draw a box between `vectorStore.js` and Pinecone labeled `Cohere Reranker Model`.
-
-```text
- ┌─────────────────────────┐
- │  vectorStore.js Helper  │
- └───────────┬─────────────┘
-             ├──────────────────────────┐
-             ▼                          ▼
-      ┌──────────────┐           ┌──────────────┐
-      │ Pinecone DB  │           │  BM25 Index  │
-      │ (Semantic)   │           │  (Keyword)   │
-      └──────┬───────┘           └──────┬───────┘
-             │                          │
-             └───────────┬──────────────┘
-                         ▼ (Top 20 candidate chunks)
-                  ┌──────────────┐
-                  │ Cohere Rerank│ (Re-evaluate relevance)
-                  └──────┬───────┘
-                         ▼ (Top 6 final RAG context)
-                    [GenAI Prompt]
-```
-
-**What to Say:**
-> "To push retrieval precision from our baseline of 95% to 99%, we would upgrade our retrieval architecture from standard vector similarity to a Hybrid Search pipeline with Reranking:
-> 
-> Instead of querying Pinecone alone, we send the search query to both our Pinecone vector index (for semantic meaning) and a BM25 index (for exact technical keyword matching). 
-> 
-> We merge the retrieval lists and take the top 20 candidate chunks. We pass these candidate chunks to a cross-encoder model—like Cohere Rerank. The reranker re-evaluates the exact relevance of each chunk against the job description, filtering out noise and ordering them.
-> 
-> We select the top 6 reranked chunks to inject into the LLM prompt. This ensures that the model is grounded on the most precise evidence possible, eliminating irrelevant context and drastically reducing hallucination risks."
-
----
-
-### Phase 13: Handling Stress Questions
-**What to Say:**
-> "Finally, let's talk about how the system handles critical infrastructure failures:
-> 
-> *   **What if Pinecone fails?** We catch the retrieval exception and fallback gracefully to a one-shot analysis, sending the entire raw resume and job description directly to Qwen.
-> *   **What if Hugging Face rate-limits us?** We configure a circuit breaker pattern in our API client. If we receive a 429 Too Many Requests, we immediately route requests to an alternative LLM endpoint or a local backup model.
-> *   **What if MongoDB database writes succeed but Pinecone indexing fails?** To prevent inconsistent states, we execute the operation within a database transaction. If the Pinecone indexing fails, we rollback the Mongoose write and return a clean error to the client, prompting them to upload again.
-> 
-> This decoupled, stateless service design ensures our platform remains stable, secure, and ready to scale under load."
-
----
-
-### Phase 14: Follow-up Whiteboard Q&A and Explanations
-**What to Do:**
-Write three bullet points on the whiteboard:
-*   *ACID vs. Semantic Partitioning*
-*   *Memory Overhead during Concurrency*
-*   *Cold Start Mitigations*
-
-**What to Say:**
-> "If the interviewer pushes deeper on system operational stability, here is how I explain our core design tradeoffs:
-> 
-> First, on ACID vs. Semantic Partitioning. We deliberately keep transactional state in MongoDB Atlas and semantic search vectors in Pinecone. Some developers try to store vectors directly in PostgreSQL using pgvector to simplify their database stack. However, doing so mixes two very different workloads. Operational databases require fast, ACID-compliant writes for logs, auth profiles, and logins. Vector search, on the other hand, is highly CPU-intensive due to floating-point distance calculations. By separating our operational data plane from our vector retrieval plane, we ensure that a traffic spike in resume analyses can never degrade core login, profile viewing, or authentication speeds.
-> 
-> Second, regarding Memory Overhead during Concurrency. Since our PDF parser acts on raw buffers in Node memory without writing temporary files to disk, we face potential RAM bottlenecks. Under high concurrent traffic, multiple large PDF uploads could lead to Node's garbage collector falling behind, potentially causing out-of-memory crashes. In a production environment, I would decouple the PDF parsing task into an independent, serverless microservice. The Express server would forward incoming file buffers to an AWS Lambda function or a Docker container running PyPDF2. This offloads the CPU and memory pressure from our main event loop, allowing the API gateway to stay responsive.
-> 
-> Third, regarding Cold Start Mitigations on Hugging Face. Hugging Face serverless models can occasionally sleep when inactive, introducing a cold-start latency spike of 10 to 15 seconds on the first request. To prevent this from ruining the user experience, we implement two solutions: we configure our client-side dashboard with useful skeletons and progress bars so the user knows analysis is running, and we configure a ping script that heartbeats our Hugging Face models every 10 minutes. This keeps the containers hot in the Hugging Face router pool, ensuring standard response times remain under 3 seconds."
-
-
-
+*   **Q: What happens if Pinecone is down?**
+    *   *A:* Our `vectorStore.js` helper catches the connection error. Instead of failing the request, it notifies the orchestrator, which falls back to sending the raw resume text from MongoDB directly to Qwen 2.5. This ensures the user still receives an analysis report, even if it lacks some semantic context.
+*   **Q: How do you handle malformed or empty PDF uploads?**
+    *   *A:* The `pdf-parse` library throws an exception if a file buffer is corrupted or empty. Our router catches this error and returns an HTTP 400 response advising the user to upload a standard, text-based PDF.
+*   **Q: What would you do differently if you had to scale this to 1 million users?**
+    *   *A:* I would make three primary upgrades:
+        1.  **Background Queue-Worker Architecture**: Move PDF parsing, Cloudinary uploads, and vector indexing into background jobs using Redis and BullMQ. This prevents requests from timing out if external APIs slow down.
+        2.  **HttpOnly Cookie Sessions**: Instead of caching JWT tokens in local storage (which is vulnerable to XSS attacks), I would store them in secure, HttpOnly cookies.
+        3.  **Template-based PDF Generation**: Replace PDFKit coordinate drawing with a headless browser service (like Puppeteer) that renders HTML templates to PDFs. This makes it easier to update and maintain templates.
